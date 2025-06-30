@@ -1,30 +1,64 @@
-import { HttpApi } from "@effect/platform"
-import { Api } from "@effect/platform/HttpApi"
-import { describe, expect, it } from "@effect/vitest"
-import { Effect, Layer } from "effect"
-import { makeTestLayer } from "src/lib/Layer.js"
-import { HttpApiGroupPokemon, HttpApiGroupPokemonLive } from "src/pokemon/HttpApiGroup.js"
-import type { HealthGroup } from "../../src/health/HttpApiGroup.js"
+import { HttpApi, HttpApiBuilder, HttpApiClient  } from "@effect/platform"
+import * as Effect from "effect/Effect"
+import * as Layer from "effect/Layer"
+
+import { describe, expect, it } from "vitest"
+import { HttpClient } from "@effect/platformnode"
+
+import { HttpApiGroupPokemon, HttpApiGroupPokemonLive } from "../../src/pokemon/HttpApiGroup.js"
 import { PokemonService } from "../../src/pokemon/PokemonService.js"
 
-describe("HttpApiGroupPokemonLive", () => {
-  it("returns a handler that responds with pikachu", async () => {
-    const api = Api
-    const handlersEffect = HttpApiGroupPokemonLive(api)
+class ApiTest extends HttpApi.make("api")
+  .add(HttpApiGroupPokemon)
+{
+}
 
-    const handlers = await Effect.runPromise(
-      handlersEffect.pipe(
-        Layer.provide(
-          makeTestLayer(PokemonService)({
-            getById: () => Effect.succeed({ id: 25, name: "Pikachu" }),
-            list: () => Effect.succeed({ pokemons: [{ id: 25, name: "Pikachu" }] })
-          })
-        ),
-        Effect.scoped
-      )
+const createTestApi = () => {
+  const api = ApiTest
+  const testLayer = Layer.mergeAll(
+    HttpApiBuilder.api(api),
+    HttpApiGroupPokemonLive(api),
+    PokemonService.Default,
+  )
+  return { api, testLayer }
+}
+
+describe("HttpApiGroupPokemon", () => {
+  describe("Structure du groupe", () => {
+    it("devrait avoir le bon nom de groupe", () => {
+      const group = HttpApiGroupPokemon
+      expect(group.identifier).toBe("pokemon")
+    })
+
+    it("devrait avoir les bons endpoints", () => {
+      const group = HttpApiGroupPokemon
+      const endpoints = group.endpoints
+      expect(endpoints["getById"].path).toBe("/pokemon/:id")
+      expect(endpoints["getAll"].path).toBe("/pokemon")
+    })
+  })
+
+  it("devrait retourner un pokemon existant", async () => {
+    const { api, testLayer } = createTestApi()
+
+    const program = Effect.gen(function*() {
+      const client = yield* HttpApiClient.make(api, {
+        baseUrl: "http://localhost"
+      })
+
+      return yield* client.pokemon.getById({ path: { id: 1 } })
+    })
+
+    // Option 1: Utiliser runPromiseExit pour capturer les erreurs
+    const result = await Effect.runPromiseExit(
+      Effect.provide(program, testLayer)
     )
 
-    const res = await Effect.runPromise(handlers.getById({ path: { id: 25 } }))
-    expect(res).toEqual({ id: 25, name: "Pikachu" })
+    if (result._tag === "Failure") {
+      console.error("Erreur capturée:", result.cause)
+      throw new Error(`Test failed: ${JSON.stringify(result.cause)}`)
+    }
+
+    expect(result.value).toEqual({ id: 1, name: "Bulbasaur" })
   })
 })
