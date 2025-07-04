@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect"
 import { Api } from "../Api.js"
 
 export class HealthGroup extends HttpApiGroup.make("health")
-  .add(HttpApiEndpoint.get("get", "/").addSuccess(Schema.Struct({ "status": Schema.Literal("ok") })))
+  .add(HttpApiEndpoint.post("get", "/").addSuccess(Schema.Struct({ "status": Schema.Literal("ok") })))
   .prefix("/health")
 {}
 
