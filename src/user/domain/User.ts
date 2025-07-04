@@ -31,3 +31,15 @@ export class UserNotFound extends Schema.TaggedError<UserNotFound>()(
   { id: UserId },
   HttpApiSchema.annotations({ status: 404 })
 ) {}
+
+export class EmailNotFound extends Schema.TaggedError<UserNotFound>()(
+  "UserNotFound",
+  { email: Email },
+  HttpApiSchema.annotations({ status: 404 })
+) {}
+
+export class EmailAlreadyUsed extends Schema.TaggedError<EmailAlreadyUsed>()(
+  "UserNotFound",
+  { email: Email },
+  HttpApiSchema.annotations({ status: 400 })
+) {}

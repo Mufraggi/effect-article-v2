@@ -4,7 +4,6 @@ import { Layer } from "effect"
 
 import { createServer } from "node:http"
 import { ApiLive } from "./Api.js"
-import { PokemonService } from "./pokemon/PokemonService.js"
 
 const HttpLive = HttpApiBuilder.serve(HttpMiddleware.logger).pipe(
   Layer.provide(HttpApiSwagger.layer()),
@@ -14,6 +13,5 @@ const HttpLive = HttpApiBuilder.serve(HttpMiddleware.logger).pipe(
   Layer.provide(NodeHttpServer.layer(createServer, {
     port: 3000
   })),
-  Layer.provide(PokemonService.Default)
 )
 NodeRuntime.runMain(Layer.launch(HttpLive))
