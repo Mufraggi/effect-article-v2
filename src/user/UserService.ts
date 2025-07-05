@@ -32,7 +32,8 @@ export class UserService extends Effect.Service<UserService>()("UserService", {
             })
           ),
           Effect.flatMap((user) => Effect.succeed(user.id)),
-          sql.withTransaction
+          sql.withTransaction,
+          Effect.catchTag("SqlError", (err) => Effect.die(err))
         ),
       login: (email: Email, password: Password) =>
         userRepository.findByEmail(email).pipe(
