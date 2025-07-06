@@ -1,8 +1,8 @@
 import { HttpApiSchema } from "@effect/platform"
 import * as bcrypt from "bcrypt"
-import { Effect, Schema } from "effect"
-import type { Password } from "../user/domain/Password.js"
-import { passwordFromString } from "../user/domain/Password.js"
+import { Effect, pipe, Schema } from "effect"
+import type { PasswordHash, PasswordString } from "../user/domain/Password.js"
+import { passwordHashFromString } from "../user/domain/Password.js"
 
 export class InvalidCredentialsError extends Schema.TaggedError<InvalidCredentialsError>()(
   "InvalidCredentialsError",
@@ -26,17 +26,19 @@ export class BcryptService extends Effect.Service<BcryptService>()("BcryptServic
   effect: Effect.gen(function*() {
     yield* Effect.logDebug("PokemonGroupLive in memory")
     return {
-      hashPassword: (password: Password) =>
+      hashPassword: (password: PasswordString) =>
+        pipe(
+          Effect.tryPromise({
+            try: async () => {
+              return await bcrypt.hash(password, 12)
+            },
+            catch: (error) => new PasswordSystemError({ message: `Failed to hash password: ${error}` })
+          }),
+          Effect.flatMap(passwordHashFromString)
+        ),
+      verifyPassword: (password: PasswordString, hash: PasswordHash) =>
         Effect.tryPromise({
-          try: async () => {
-            const hash = await bcrypt.hash(password.pipe(toString), 12)
-            return passwordFromString(hash)
-          },
-          catch: (error) => new PasswordSystemError({ message: `Failed to hash password: ${error}` })
-        }),
-      verifyPassword: (password: Password, hash: Password) =>
-        Effect.tryPromise({
-          try: () => bcrypt.compare(password.pipe(toString), hash.pipe(toString)),
+          try: () => bcrypt.compare(password, hash),
           catch: (error) => new PasswordSystemError({ message: `Failed to verify password: ${error}` })
         }).pipe(
           Effect.flatMap((isValid) =>

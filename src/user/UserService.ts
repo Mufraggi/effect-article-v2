@@ -3,7 +3,7 @@ import { Effect, Option, pipe } from "effect"
 import { BcryptService, InvalidCredentialsError } from "../lib/BcryptService.js"
 import { PgLive } from "../Sql.js"
 import type { Email } from "./domain/email.js"
-import type { Password } from "./domain/Password.js"
+import type { PasswordString } from "./domain/Password.js"
 import type { User } from "./domain/User.js"
 import { EmailAlreadyUsed, EmailNotFound } from "./domain/User.js"
 import { UserRepository } from "./UserRepository.js"
@@ -14,7 +14,7 @@ export class UserService extends Effect.Service<UserService>()("UserService", {
     const bcryptService = yield* BcryptService
     const sql = yield* SqlClient.SqlClient
     return {
-      signup: (email: Email, password: Password) =>
+      signup: (email: Email, password: PasswordString) =>
         userRepository.findByEmail(email).pipe(
           Effect.flatMap(
             Option.match({
@@ -33,12 +33,13 @@ export class UserService extends Effect.Service<UserService>()("UserService", {
           ),
           Effect.flatMap((user) => Effect.succeed(user.id)),
           sql.withTransaction,
-          Effect.catchTag("SqlError", (err) => Effect.die(err))
+          Effect.catchTag("SqlError", (err) => Effect.die(err)),
+          Effect.catchTag("ParseError", (err) => Effect.die(err))
         ),
-      login: (email: Email, password: Password) =>
+      login: (email: Email, password: PasswordString) =>
         userRepository.findByEmail(email).pipe(
           Effect.flatMap(Option.match({
-            onNone: () => new EmailNotFound({ email }),
+            onNone: () => Effect.fail(new EmailNotFound({ email })),
             onSome: (user: User) => Effect.succeed(user)
           })),
           Effect.flatMap((user) =>
@@ -51,7 +52,9 @@ export class UserService extends Effect.Service<UserService>()("UserService", {
               )
             )
           ),
-          Effect.flatMap((user) => Effect.succeed(user.id))
+          Effect.flatMap((user) => Effect.succeed(user.id)),
+          sql.withTransaction,
+          Effect.catchTag("SqlError", (err) => Effect.die(err))
         )
     }
   }),
