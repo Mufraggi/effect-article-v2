@@ -3,11 +3,6 @@ import type { Brand } from "effect/Brand"
 
 export type PasswordString = string & Brand<"PasswordString">
 
-// Règle de validation :
-// - Au moins 8 caractères
-// - Au moins une majuscule
-// - Au moins une minuscule
-// - Au moins un chiffre
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
 
 export type PasswordHash = string & Brand<"PasswordHash">
